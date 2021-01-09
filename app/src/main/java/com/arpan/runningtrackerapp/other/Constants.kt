@@ -25,4 +25,6 @@ object Constants {
 
     const val TIMER_UPDATE_INTERVAL = 50L
 
+    const val GPS_REQUEST = 111
+
 }
