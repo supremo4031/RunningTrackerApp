@@ -37,6 +37,7 @@
         android:label="TrackingFragment" >
         <action
             android:id="@+id/action_trackingFragment_to_runFragment"
+            app:launchSingleTop="true"
             app:destination="@id/runFragment" />
     </fragment>
 </navigation>

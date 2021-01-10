@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">RunningTracker App</string>
     <string name="add_new">add new</string>
+    <string name="cancel_run">Cancel Run</string>
     <string-array name="filter_options">
         <item>Date</item>
         <item>Running Time</item>

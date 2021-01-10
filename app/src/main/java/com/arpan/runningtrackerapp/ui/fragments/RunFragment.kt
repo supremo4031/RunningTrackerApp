@@ -6,15 +6,24 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.AdapterView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Observer
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.arpan.runningtrackerapp.R
+import com.arpan.runningtrackerapp.adapters.RunAdapter
+import com.arpan.runningtrackerapp.db.Run
 import com.arpan.runningtrackerapp.other.Constants
 import com.arpan.runningtrackerapp.other.Constants.REQUEST_CODE_LOCATION_PERMISSION
 import com.arpan.runningtrackerapp.other.GpsUtils
+import com.arpan.runningtrackerapp.other.SortType
 import com.arpan.runningtrackerapp.other.TrackingUtility
 import com.arpan.runningtrackerapp.ui.viewmodels.MainViewModel
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.fragment_run.*
 import pub.devrel.easypermissions.AppSettingsDialog
@@ -27,14 +36,94 @@ class RunFragment : Fragment(R.layout.fragment_run), EasyPermissions.PermissionC
 
     private var isGps = false
 
+    private lateinit var runAdapter: RunAdapter
+
+    private var runs : List<Run>? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         requestPermissions()
+        setupRecyclerView()
+
+        when(viewModel.sortType) {
+            SortType.DATE -> spFilter.setSelection(0)
+            SortType.RUNNING_TIME -> spFilter.setSelection(1)
+            SortType.DISTANCE -> spFilter.setSelection(2)
+            SortType.AVG_SPEED -> spFilter.setSelection(3)
+            SortType.CALORIES_BURNT -> spFilter.setSelection(4)
+        }
+
+        spFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener{
+            override fun onItemSelected(adapterView: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                when(pos) {
+                    0 -> viewModel.sortRuns(sortType = SortType.DATE)
+                    1 -> viewModel.sortRuns(sortType = SortType.RUNNING_TIME)
+                    2 -> viewModel.sortRuns(sortType = SortType.DISTANCE)
+                    3 -> viewModel.sortRuns(sortType = SortType.AVG_SPEED)
+                    4 -> viewModel.sortRuns(sortType = SortType.CALORIES_BURNT)
+                }
+            }
+
+            override fun onNothingSelected(p0: AdapterView<*>?) {
+
+            }
+        }
+
+        viewModel.runs.observe(viewLifecycleOwner, Observer {
+            runAdapter.submitList(it)
+            runs = it
+        })
 
         fab.setOnClickListener {
             findNavController().navigate(R.id.action_runFragment_to_trackingFragment)
         }
+
+        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(
+                ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+                ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(
+                    recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+            ): Boolean {
+                return true
+            }
+
+            override fun onSwiped(
+                    viewHolder: RecyclerView.ViewHolder,
+                    direction: Int
+            ) {
+                val pos = viewHolder.adapterPosition
+                val run = runs?.get(pos)
+                if (run != null) {
+                    viewModel.deleteRun(run)
+                    getView()?.let {
+                        Snackbar.make(
+                                it,
+                                "Run deleted successfully",
+                                Snackbar.LENGTH_LONG
+                        ).apply {
+                            setAction("UNDO") {
+                                viewModel.insertRun(run)
+                            }
+                            show()
+                        }
+                    }
+                }
+            }
+        }
+
+        ItemTouchHelper(itemTouchHelperCallback).apply {
+            attachToRecyclerView(rvRuns)
+        }
+    }
+
+    private fun setupRecyclerView() = rvRuns.apply {
+        runAdapter = RunAdapter()
+        adapter = runAdapter
+        layoutManager = LinearLayoutManager(requireContext())
     }
 
     private fun requestPermissions() {
